@@ -2,7 +2,7 @@ version: "3"
 
 services:
   namenode:
-    image: bde2020/hadoop-namenode:2.0.0-hadoop2.7.4-java8
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.3.1-java8
     container_name: namenode
     volumes:
       - hadoop_namenode:/hadoop/dfs/name
@@ -14,7 +14,7 @@ services:
       - 50070:50070
 
   datanode:
-    image: bde2020/hadoop-datanode:2.0.0-hadoop2.7.4-java8
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.3.1-java8
     container_name: datanode
     volumes:
       - hadoop_datanode:/hadoop/dfs/data
@@ -26,7 +26,7 @@ services:
       - 50075:50075
 
   resourcemanager:
-    image: bde2020/hadoop-resourcemanager:2.0.0-hadoop2.7.4-java8
+    image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.3.1-java8
     container_name: resourcemanager
     environment:
       SERVICE_PRECONDITION: "namenode:50070 datanode:50075"
@@ -36,7 +36,7 @@ services:
       - 8088:8088
 
   nodemanager1:
-    image: bde2020/hadoop-nodemanager:2.0.0-hadoop2.7.4-java8
+    image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.3.1-java8
     container_name: nodemanager
     environment:
       SERVICE_PRECONDITION: "namenode:50070 datanode:50075 resourcemanager:8088"
@@ -46,7 +46,7 @@ services:
       - 8042:8042
 
   historyserver:
-    image: bde2020/hadoop-historyserver:2.0.0-hadoop2.7.4-java8
+    image: bde2020/hadoop-historyserver:2.0.0-hadoop3.3.1-java8
     container_name: historyserver
     volumes:
       - hadoop_historyserver:/hadoop/yarn/timeline
@@ -57,17 +57,59 @@ services:
     ports:
       - 8188:8188
   
-  zoo:
-    image: zookeeper:3.4.10
-    container_name: zoo
-    environment:
-      ZOO_MY_ID: 1
-      ZOO_SERVERS: server.1=0.0.0.0:2888:3888
+  zoo1:
+    image: zookeeper:3.6.3
+    restart: always
+    hostname: zoo1
+    volumes:
+      - zoo1_data:/data
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
     ports:
       - 2181:2181
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zoo1:2888:3888;2181 server.2=zoo2:2888:3888;2181 server.3=zoo3:2888:3888;2181
+
+  zoo2:
+    image: zookeeper:3.6.3
+    restart: always
+    hostname: zoo2
+    volumes:
+      - zoo2_data:/data
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure    
+    ports:
+      - 2182:2181
+    environment:
+      ZOO_MY_ID: 2
+      ZOO_SERVERS: server.1=zoo1:2888:3888;2181 server.2=zoo2:2888:3888;2181 server.3=zoo3:2888:3888;2181
+
+  zoo3:
+    image: zookeeper:3.6.3
+    restart: always
+    hostname: zoo3
+    volumes:
+      - zoo3_data:/data
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure    
+    ports:
+      - 2183:2181
+    environment:
+      ZOO_MY_ID: 3
+      ZOO_SERVERS: server.1=zoo1:2888:3888;2181 server.2=zoo2:2888:3888;2181 server.3=zoo3:2888:3888;2181
 
   hbase-master:
-    image: bde2020/hbase-master:1.0.0-hbase1.2.6
+    image: bde2020/hbase-master:1.0.0-hbase2.4.4
     container_name: hbase-master
     hostname: hbase-master
     env_file:
@@ -78,13 +120,13 @@ services:
       - 16010:16010
 
   hbase-region:
-    image: bde2020/hbase-regionserver:1.0.0-hbase1.2.6
+    image: bde2020/hbase-regionserver:1.0.0-hbase2.4.4
     container_name: hbase-regionserver
     hostname: hbase-regionserver
     env_file:
       - ./hbase-distributed-local.env
     environment:
-      HBASE_CONF_hbase_regionserver_hostname: hbase-region
+      HBASE_CONF_hbase_regionserver_hostname: hbase-regionserver
       SERVICE_PRECONDITION: "namenode:50070 datanode:50075 zoo:2181 hbase-master:16010"
     ports:
       - 16030:16030
@@ -93,3 +135,6 @@ volumes:
   hadoop_namenode:
   hadoop_datanode:
   hadoop_historyserver:
+  zoo1_data:
+  zoo2_data:
+  zoo3_data:    
